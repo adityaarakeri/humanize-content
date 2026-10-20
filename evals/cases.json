@@ -1,0 +1,439 @@
+{
+  "cases": [
+    {
+      "id": "law1-vague-metrics",
+      "law": "Law 1: never fabricate",
+      "mode": "rewrite",
+      "platform": "blog post",
+      "input": "Our new caching layer made builds significantly faster and our customers absolutely love it. It's a game-changer for teams of all sizes.",
+      "checks": [
+        {
+          "type": "rewrite_contains",
+          "value": "[FILL:",
+          "why": "missing measurement must be flagged in the rewritten passage"
+        },
+        {
+          "type": "not_regex",
+          "value": "\\b\\d+(?:\\.\\d+)?\\s*(?:%|percent|x\\b|times\\b|seconds?\\b|secs?\\b|minutes?\\b|mins?\\b|ms\\b|hours?\\b)",
+          "flags": "i",
+          "why": "no invented speedup figures"
+        },
+        {
+          "type": "not_regex",
+          "value": "\\b\\d[\\d,]*\\+?\\s+(?:customers|teams|users|companies)\\b",
+          "flags": "i",
+          "why": "no invented customer counts"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "The new caching layer cut our build times [FILL: from X to Y, your real numbers], and customers noticed.\n\n**Needs your input**\n- Real before/after build times",
+        "fail": "The new caching layer took our builds from 4 minutes to 40 seconds, and 300 teams switched over in a month.",
+        "failures": [
+          "The new caching layer made builds significantly faster. Customers love it.",
+          "Builds got faster.\n\n**Needs your input**\n[FILL: real build times]"
+        ]
+      }
+    },
+    {
+      "id": "law1-no-fake-story",
+      "law": "Law 1 / O4-FAKESTORY",
+      "mode": "rewrite",
+      "platform": "LinkedIn",
+      "input": "Code review is important. Teams that skip it ship more bugs. Make time for it.",
+      "checks": [
+        {
+          "type": "not_regex",
+          "value": "\\b(?:I've seen|I have seen|a client (?:once )?told me|last (?:week|month|year),? I|years ago,? I|when I was at|early in my career)\\b",
+          "flags": "i",
+          "why": "no invented personal anecdotes"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "Teams that skip code review ship more bugs. Block out the time for it the same way you block out time to write the code.",
+        "fail": "I've seen this go wrong so many times. Last year I watched a team skip review and ship a bug that took down checkout."
+      }
+    },
+    {
+      "id": "law3-preserve-code-urls",
+      "law": "Law 3: preserve meaning exactly",
+      "mode": "rewrite",
+      "platform": "README",
+      "input": "In order to utilize the tool, it is important to note that you must first install version v2.3.1 by running `npm install -g acme-cli@2.3.1`. Subsequently, the server will commence listening on port 8080. Documentation can be found at https://example.com/docs/setup.\n\n```bash\nacme serve --port 8080\n```",
+      "checks": [
+        {
+          "type": "contains",
+          "value": "`npm install -g acme-cli@2.3.1`"
+        },
+        {
+          "type": "contains",
+          "value": "https://example.com/docs/setup"
+        },
+        {
+          "type": "contains",
+          "value": "```bash\nacme serve --port 8080\n```"
+        },
+        {
+          "type": "contains",
+          "value": "8080"
+        },
+        {
+          "type": "not_regex",
+          "value": "\\b(?:in order to|utilize|commence|subsequently)\\b",
+          "flags": "i",
+          "why": "the stiffness should be gone"
+        },
+        {
+          "type": "scanner_no_p0"
+        },
+        {
+          "type": "preserve_code"
+        }
+      ],
+      "fixtures": {
+        "pass": "Install v2.3.1 first with `npm install -g acme-cli@2.3.1`. The server listens on port 8080.\n\n```bash\nacme serve --port 8080\n```\n\nSetup docs: https://example.com/docs/setup",
+        "fail": "Install the latest version with `npm install -g acme-cli`. The server listens on port 3000.\n\n```bash\nacme serve\n```",
+        "failures": [
+          "Install v2.3.1.\n\n```bash\nnpm install -g acme-cli@2.3.1\nacme serve --port 8080\n```\nhttps://example.com/docs/setup",
+          "Install v2.3.1.\n\n**What changed**\nInstall v2.3.1 first with `npm install -g acme-cli@2.3.1`. The server listens on port 8080.\n\n```bash\nacme serve --port 8080\n```\n\nSetup docs: https://example.com/docs/setup"
+        ]
+      }
+    },
+    {
+      "id": "o7-no-opinion-implant",
+      "law": "O7-OPINIONIMPLANT",
+      "mode": "rewrite",
+      "platform": "blog post",
+      "input": "Postgres and MySQL both support JSON columns. Postgres offers JSONB with GIN indexing, while MySQL provides a JSON type that can be indexed through generated columns.",
+      "checks": [
+        {
+          "type": "contains",
+          "value": "JSONB"
+        },
+        {
+          "type": "contains",
+          "value": "generated column"
+        },
+        {
+          "type": "not_regex",
+          "value": "\\b(?:die on this hill|clearly (?:better|superior|wins)|obviously better|hands down|no contest|genuinely better|I'm tired of|the (?:right|only) choice)\\b",
+          "flags": "i",
+          "why": "the source takes no side, so the rewrite must not either"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "Postgres and MySQL both store JSON. Postgres has JSONB, which you can index with GIN. MySQL has a JSON type that you index through generated columns.",
+        "fail": "Postgres has JSONB and MySQL has generated columns, but Postgres is hands down the better pick and I'll die on this hill."
+      }
+    },
+    {
+      "id": "voice-emdash-samples",
+      "law": "Hard ban beats voice samples",
+      "mode": "rewrite",
+      "platform": "email",
+      "voice_samples": [
+        "Quick update\u2014the deploy slipped to Thursday. Nothing's broken\u2014we just want one more soak day.",
+        "Thanks for flagging\u2014I'll take a look after standup."
+      ],
+      "input": "I wanted to reach out to let you know that the migration has been completed\u2014all services are now running on the new cluster. Please let me know if you'd like any further information.",
+      "checks": [
+        {
+          "type": "not_contains",
+          "value": "\u2014",
+          "why": "em dashes are removed even when the user's own samples use them"
+        },
+        {
+          "type": "not_regex",
+          "value": "--",
+          "why": "no double-hyphen stand-ins either"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "Quick update: the migration's done. Everything is running on the new cluster now.",
+        "fail": "Quick update\u2014the migration's done. Everything is on the new cluster."
+      }
+    },
+    {
+      "id": "o1-no-sass-replacement",
+      "law": "Law 2 / O1-SASS",
+      "mode": "rewrite",
+      "platform": "blog post",
+      "input": "Furthermore, the migration is complete. Moreover, the rollback plan has been tested. Additionally, monitoring is in place.",
+      "checks": [
+        {
+          "type": "not_regex",
+          "value": "^(?:Furthermore|Moreover|Additionally),",
+          "flags": "im",
+          "why": "template transitions removed"
+        },
+        {
+          "type": "not_regex",
+          "value": "here'?s the (?:thing|kicker|catch|truth)|the result\\?|the kicker\\?|real talk|and honestly\\?",
+          "flags": "i",
+          "why": "no sass swapped in"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "The migration is done. We tested the rollback plan, and monitoring is in place.",
+        "fail": "The migration is done. And here's the thing: the rollback plan is tested too."
+      }
+    },
+    {
+      "id": "detect-mode-findings",
+      "law": "Detect mode reports, does not rewrite",
+      "mode": "detect",
+      "platform": "LinkedIn",
+      "input": "Certainly! In today's fast-paced digital landscape, our team is thrilled to announce a game-changer\u2014it's not just a tool, it's a movement. Let that sink in.",
+      "checks": [
+        {
+          "type": "finding",
+          "id": "R1-CHATBOT",
+          "severity": "P0",
+          "quote": "Certainly!"
+        },
+        {
+          "type": "finding",
+          "id": "P1-EMDASH",
+          "severity": "P0",
+          "quote": "game-changer"
+        },
+        {
+          "type": "finding",
+          "id": "S2-NOTJUSTX",
+          "severity": "P0",
+          "quote": "not just a tool"
+        },
+        {
+          "type": "finding",
+          "id": "O1-SASS",
+          "severity": "P0",
+          "quote": "Let that sink in"
+        },
+        {
+          "type": "finding",
+          "id": "V1-TIER1",
+          "severity": "P1",
+          "quote": "landscape"
+        },
+        {
+          "type": "finding",
+          "id": "V4-CLICHE",
+          "severity": "P1",
+          "quote": "fast-paced"
+        }
+      ],
+      "fixtures": {
+        "pass": "**Findings**\n- P0 R1-CHATBOT: \"Certainly!\"\n- P0 P1-EMDASH: dash after \"game-changer\"\n- P0 S2-NOTJUSTX: \"it's not just a tool, it's a movement\"\n- P0 O1-SASS: \"Let that sink in\"\n- P1 V1-TIER1: \"digital landscape\"\n- P1 V4-CLICHE: \"fast-paced\"\n\n**Read**: reads AI-written.",
+        "fail": "Our team shipped a new tool. It helps you move faster.",
+        "failures": [
+          "**Findings**\n- P0 R1-CHATBOT: \"Certainly!\"\n- P0 P1-EMDASH: dash after \"game-changer\"\n- P0 S2-NOTJUSTX: \"it's not just a tool, it's a movement\"\n- P0 O1-SASS: \"Let that sink in\"\n- P0 V1-TIER1: \"digital landscape\"\n- P1 V4-CLICHE: \"fast-paced\"\n\n**Read**: reads AI-written.",
+          "**Findings**\n- P0 R1-CHATBOT: \"Certainly!\"\n- P1 P1-EMDASH: dash after \"game-changer\"\n- P0 S2-NOTJUSTX: \"it's not just a tool, it's a movement\"\n- P0 O1-SASS: \"Let that sink in\"\n- P1 V1-TIER1: \"digital landscape\"\n- P1 V4-CLICHE: \"fast-paced\"\n\n**Read**: reads AI-written.",
+          "**Findings**\n- P0 R1-CHATBOT: \"unrelated text\"\n- P0 P1-EMDASH: dash after \"game-changer\"\n- P0 S2-NOTJUSTX: \"it's not just a tool, it's a movement\"\n- P0 O1-SASS: \"Let that sink in\"\n- P1 V1-TIER1: \"digital landscape\"\n- P1 V4-CLICHE: \"fast-paced\"\n\n**Read**: reads AI-written."
+        ]
+      }
+    },
+    {
+      "id": "law1-supplied-metrics",
+      "law": "Law 1: preserve supplied measurements",
+      "mode": "rewrite",
+      "platform": "blog post",
+      "input": "The cache cut build time from 120 seconds to 45 seconds in our 18-job test.",
+      "checks": [
+        {
+          "type": "contains",
+          "value": "120 seconds"
+        },
+        {
+          "type": "contains",
+          "value": "45 seconds"
+        },
+        {
+          "type": "contains",
+          "value": "18"
+        },
+        {
+          "type": "not_contains",
+          "value": "[FILL:"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "The cache cut build time from 120 seconds to 45 seconds in our 18-job test.",
+        "fail": "The cache cut build time [FILL: before and after measurements]."
+      }
+    },
+    {
+      "id": "law3-protected-format",
+      "law": "Law 3: retain code punctuation and boundaries",
+      "mode": "rewrite",
+      "platform": "README",
+      "input": "Run `tool --label \"a b\"`, then `tool status`. See https://example.com/a?q=one&v=2.\n\n```sh\nprintf \"ready\u2014go\\n\"\n```",
+      "checks": [
+        {
+          "type": "preserve_code"
+        },
+        {
+          "type": "contains",
+          "value": "https://example.com/a?q=one&v=2"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "Run `tool --label \"a b\"`, then `tool status`. See https://example.com/a?q=one&v=2.\n\n```sh\nprintf \"ready\u2014go\\n\"\n```",
+        "fail": "Run `tool --label \"a b\"`, then tool status. See https://example.com/a?q=one&v=2.\n\n```sh\nprintf \"ready\u2014go\\n\"\n```"
+      }
+    },
+    {
+      "id": "reply-x-no-flattery",
+      "law": "R5-RECAPFLATTERY / X reply",
+      "mode": "rewrite",
+      "platform": "X reply",
+      "input": "Parent post: \"We moved our CI from Jenkins to GitHub Actions.\"\n\nDraft reply: Great point! It's so important to keep your CI modern. Thanks for sharing this valuable insight.",
+      "checks": [
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\b(?:great point|thanks for sharing|valuable insight|what do you think)\\b",
+          "flags": "i",
+          "why": "no flattery opener, no engagement-bait closer"
+        },
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\?",
+          "why": "the draft has no question, so the rewrite must not add one, even a rephrased one"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "Moving CI off Jenkins is a big change. [FILL: one real detail about your own caching or CI setup, or skip the reply]",
+        "fail": "Great point! Thanks for sharing this valuable insight. What do you think about caching?",
+        "failures": [
+          "How are you handling caching in GitHub Actions?"
+        ]
+      }
+    },
+    {
+      "id": "reply-linkedin-no-fake-story",
+      "law": "O4-FAKESTORY / LinkedIn reply",
+      "mode": "rewrite",
+      "platform": "LinkedIn reply",
+      "input": "Parent comment: \"Do you review every PR before merge?\"\n\nDraft reply: Great insights! Thanks for sharing. Yes, we review every PR before merge.",
+      "checks": [
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\b(?:great insights|thanks for sharing|I've seen|in my experience|years ago)\\b",
+          "flags": "i",
+          "why": "no compliment opener and no invented experience"
+        },
+        {
+          "type": "contains",
+          "value": "review every PR before merge"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "Yes, we review every PR before merge.",
+        "fail": "Great insights! In my experience, teams that skip review always regret it. Yes, we review every PR before merge."
+      }
+    },
+    {
+      "id": "reply-slack-answer-first",
+      "law": "S9-WALLREPLY / Slack reply",
+      "mode": "rewrite",
+      "platform": "Slack reply",
+      "input": "Parent message: \"Is the staging deploy done?\"\n\nDraft reply: Certainly! Thank you for your question about the staging deploy. I hope this helps: the staging deploy finished at 14:05 and is healthy. Feel free to reach out if you have further questions.",
+      "checks": [
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\b(?:certainly|thank you for your question|hope this helps|feel free to)\\b",
+          "flags": "i",
+          "why": "no chatbot residue in a Slack reply"
+        },
+        {
+          "type": "contains",
+          "value": "14:05"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "Yes, it finished at 14:05 and is healthy.",
+        "fail": "Certainly! Thank you for your question. I hope this helps: the staging deploy finished at 14:05. Feel free to reach out."
+      }
+    },
+    {
+      "id": "reply-messages-no-invented-plans",
+      "law": "Law 1 / Messages reply",
+      "mode": "rewrite",
+      "platform": "Messages reply",
+      "input": "Incoming message: \"Are we still on for tonight?\"\n\nDraft reply: Absolutely! I'm looking forward to it. Let me know if you'd like to adjust anything.",
+      "checks": [
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\b(?:at \\d{1,2}(?::\\d{2})?\\s?(?:am|pm)?|see you (?:at|there)|let me know|tell me if|just let me|if you (?:want|need|'d like) to (?:change|adjust))\\b",
+          "flags": "i",
+          "why": "no invented time or place, no offer-to-adjust closer, however phrased"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "Yes, still on for tonight.",
+        "fail": "Absolutely! See you at 7 at the usual place. Let me know if you'd like to adjust anything.",
+        "failures": [
+          "Yes, I\u2019m looking forward to it! Just tell me if you want to change anything."
+        ]
+      }
+    },
+    {
+      "id": "reply-x-post-no-hashtags",
+      "law": "P5-HASHTAG / X post",
+      "mode": "rewrite",
+      "platform": "X post",
+      "input": "Launching our new analytics dashboard today. It leverages AI to empower teams. #AI #Analytics #Startup #Growth #Tech",
+      "checks": [
+        {
+          "type": "rewrite_not_regex",
+          "value": "(?:#\\w+.*){3,}",
+          "why": "no hashtag block"
+        },
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\b(?:leverages?|empowers?)\\b",
+          "flags": "i",
+          "why": "no Tier 1 vocabulary"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "New analytics dashboard is live today. It uses AI to help teams see their numbers. [FILL: what it actually does]",
+        "fail": "Launching our new analytics dashboard today. It leverages AI to empower teams. #AI #Analytics #Startup #Growth"
+      }
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "name": "humanize-content",
+  "version": "2.1.0",
+  "private": true,
+  "description": "Codex and Claude skill that removes AI writing tells without introducing humanizer tells. Includes a zero-dependency deterministic scanner and behavior evals.",
+  "license": "MIT",
+  "author": "Adi",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "SKILL.md",
+    "references/",
+    "scripts/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node test/run.js && node test/evals.js",
+    "eval": "node evals/run.js --self-test",
+    "check": "node scripts/check.js SKILL.md README.md CHANGELOG.md",
+    "lint": "node --check scripts/check.js && node --check test/run.js && node --check evals/run.js && node --check evals/codex.js && node --check test/evals.js",
+    "ci": "npm run lint && npm test && npm run eval && npm run check",
+    "eval:codex": "node evals/codex.js"
+  },
+  "keywords": [
+    "codex",
+    "claude",
+    "claude-code",
+    "skill",
+    "ai-writing",
+    "humanize",
+    "writing",
+    "linter"
+  ]
+}

@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Generated eval run output (codex runs, prompts, stderr logs, snapshots)
+evals/outputs/
+
+# Logs and local env
+*.log
+npm-debug.log*
+.env
+.env.*
+
+# Build artifacts
+*.zip
+*.tgz
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
