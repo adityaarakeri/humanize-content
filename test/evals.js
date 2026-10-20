@@ -33,6 +33,15 @@ const ordinaryProse = { input: '', checks: [{ type: 'rewrite_contains', value: '
 assert(grade(ordinaryProse, 'What changed was the speed [FILL: before and after].').every((r) => r.ok),
   'ordinary prose beginning with What changed is not a notes heading');
 
+const hardText = 'The utilization of comprehensive methodologies necessitated substantial reevaluation of organizational infrastructure considerations. Implementation of those recommendations demonstrated considerable improvement.';
+const gradeCase = { input: '', checks: [{ type: 'max_grade', value: 7 }] };
+assert(grade(gradeCase, 'We built a cache. It made reads faster. We kept the old path as a backup.').every((r) => r.ok), 'max_grade passes simple text');
+assert(grade(gradeCase, hardText).some((r) => !r.ok), 'max_grade fails dense text');
+assert(grade(gradeCase, 'Short and plain.\n\nWhat changed:\n- ' + hardText).every((r) => r.ok), 'max_grade ignores the change log');
+assert(grade(gradeCase, '').some((r) => !r.ok), 'max_grade fails empty output');
+const optionCase = cases.find((c) => c.options);
+assert(optionCase && require('../evals/run.js').promptFor(optionCase).includes('Options: '), 'cases with options put them in the prompt');
+
 const bodyOnly = { input: '', checks: [{ type: 'rewrite_not_regex', value: 'valuable insight' }] };
 assert(grade(bodyOnly, 'Short reply.\n\nWhat changed:\n- Cut the valuable insight opener.').every((r) => r.ok),
   'rewrite_not_regex ignores the change log');

@@ -8,14 +8,15 @@
 //   rules        each scanner rule fires on a minimal example
 //   false pos    things that look like tells but are not
 //   masking      code, comments, markers, tables
-//   cli          exit codes, --json, --help, bad input
+//   metrics      syllables, readability numbers, plainness ceilings
+//   cli          exit codes, --json, --help, --metrics, --plainness, bad input
 //   catalog      scanner and reference files agree (drift guard)
 //   repo         the repo passes its own rules
 
 const path = require('path');
 const fs = require('fs');
 const { spawnSync } = require('child_process');
-const { scan, RULES, TIER1 } = require('../scripts/check.js');
+const { scan, RULES, TIER1, computeMetrics, countSyllables, plainnessFindings, PLAINNESS_TARGETS } = require('../scripts/check.js');
 
 const ROOT = path.join(__dirname, '..');
 const CHECK = path.join(ROOT, 'scripts', 'check.js');
@@ -104,6 +105,33 @@ assert(clean('---\ntitle: x\n---\n\n| a | b |\n|---|---|\n| -- | -- |\n| 1 | 2 |
 assert(scan('line one\n\n```\na\n```\nWe delve.').find((f) => f.id === 'V1-TIER1').line === 6, 'line numbers survive masking');
 
 // ---------------------------------------------------------------------------
+console.log('metrics');
+assert([['cat', 1], ['table', 2], ['wanted', 2], ['make', 1], ['readable', 3], ['important', 3], ['latency', 3], ['need', 1]].every(([w, n]) => countSyllables(w) === n),
+  'syllable heuristic on common words');
+assert(countSyllables('') === 0 && countSyllables('p99') === 1, 'syllables: empty is 0, a word with no vowel group is 1');
+let m = computeMetrics('The cat sat. The dog ran far away.');
+assert(m.words === 8 && m.sentences === 2, `counts words and sentences (${m.words}/${m.sentences})`);
+assert(m.meanSentenceLength === 4 && m.sdSentenceLength === 1, `mean and sd of sentence length (${m.meanSentenceLength}/${m.sdSentenceLength})`);
+assert(m.fkGrade !== null && m.fkGrade < 2, `short words give a low grade (${m.fkGrade})`);
+const dense = 'The utilization of comprehensive methodologies necessitated substantial reevaluation of organizational infrastructure considerations. Implementation of those recommendations demonstrated considerable improvement.';
+m = computeMetrics(dense);
+assert(m.fkGrade > 18 && m.longWordShare > 0.6, `dense prose gives a high grade and many long words (${m.fkGrade}, ${m.longWordShare})`);
+m = computeMetrics("We don't know. It's fine. They are late, and I am not sure.");
+assert(m.contractions === 2 && m.contractionRate === 0.5, `contraction rate counts contracted over contractable (${m.contractions}, ${m.contractionRate})`);
+assert(computeMetrics('Plain words here.').contractionRate === null, 'contraction rate is null with no opportunities');
+assert(computeMetrics("John's car is red.").contractions === 0, 'possessive is not a contraction');
+m = computeMetrics('Short line.\n\n```js\nconst utilizeEverything = comprehensive(methodology);\n```\n\nSee https://example.com/very/long/path/here and `inline code` now.');
+assert(m.words === 5, `code, URLs, and inline code are not measured (${m.words} words)`);
+m = computeMetrics('# Title here\n\n- First item\n- Second item\n\n[a link](https://x.com) ends.');
+assert(m.sentences === 4, `headings and list items count as sentences (${m.sentences})`);
+assert(computeMetrics('').fkGrade === null && computeMetrics('').words === 0, 'empty text gives null grade');
+const hard = dense + ' ' + dense;
+assert(plainnessFindings(computeMetrics(hard), 'very-plain').length === 1 && plainnessFindings(computeMetrics(hard), 'very-plain')[0].id === 'V5-PLAINNESS' && plainnessFindings(computeMetrics(hard), 'very-plain')[0].sev === 'P2', 'hard text trips the very-plain ceiling as P2 V5-PLAINNESS');
+assert(plainnessFindings(computeMetrics('Hard words utilization methodology.'), 'very-plain').length === 0, 'plainness check is skipped under 20 words');
+assert(plainnessFindings(computeMetrics('The cat sat on the mat and the dog ran far away from the big red barn by the old gray road.'), 'very-plain').length === 0, 'simple text passes the very-plain ceiling');
+assert(PLAINNESS_TARGETS.standard > PLAINNESS_TARGETS.plain && PLAINNESS_TARGETS.plain > PLAINNESS_TARGETS['very-plain'], 'ceilings tighten from standard to very-plain');
+
+// ---------------------------------------------------------------------------
 console.log('cli');
 const run = (args, input) => spawnSync(process.execPath, [CHECK, ...args], { input, encoding: 'utf8' });
 let r = run(['--help']);
@@ -127,6 +155,27 @@ try { parsed = JSON.parse(r.stdout); } catch (_) { parsed = null; }
 assert(parsed && !Array.isArray(parsed) && parsed.findings.length > 0, '--json with one input prints one object');
 r = run(['does-not-exist.md', path.join(ROOT, 'README.md')]);
 assert(r.status === 2 && r.stdout.includes('README.md'), 'unreadable file exits 2 but still scans the rest');
+r = run(['--json', '-'], 'We delve.');
+try { parsed = JSON.parse(r.stdout); } catch (_) { parsed = null; }
+assert(parsed && !('metrics' in parsed) && Object.keys(parsed).join() === 'file,findings', '--json shape is unchanged without --metrics');
+r = run(['--json', '--metrics', '-'], 'Plain words in a short line.');
+try { parsed = JSON.parse(r.stdout); } catch (_) { parsed = null; }
+assert(parsed && parsed.metrics && parsed.metrics.words === 6 && Array.isArray(parsed.findings), '--json --metrics adds a metrics key');
+r = run(['--metrics', '-'], 'Plain words in a short line.');
+assert(r.status === 0 && r.stdout.includes('metrics:') && r.stdout.includes('approx. grade'), '--metrics prints a metrics line');
+r = run(['-'], 'Plain words in a short line.');
+assert(!r.stdout.includes('metrics:'), 'metrics are off by default');
+r = run(['--json', '--plainness', 'very-plain', '-'], dense + ' ' + dense);
+try { parsed = JSON.parse(r.stdout); } catch (_) { parsed = null; }
+assert(r.status === 0 && parsed && parsed.findings.some((f) => f.id === 'V5-PLAINNESS' && f.sev === 'P2') && !('metrics' in parsed), '--plainness adds a P2 finding, never changes the exit code, and does not add metrics');
+r = run(['--plainness=standard', '-'], dense + ' ' + dense);
+assert(r.status === 0 && r.stdout.includes('V5-PLAINNESS'), '--plainness=level form works');
+r = run(['--plainness', 'bogus', '-'], 'Text.');
+assert(r.status === 2 && r.stderr.includes('--plainness needs one of'), 'bad plainness level exits 2');
+r = run(['--plainness']);
+assert(r.status === 2, '--plainness without a value exits 2');
+r = run(['--help']);
+assert(r.stdout.includes('--metrics') && r.stdout.includes('--plainness'), '--help documents the new flags');
 const evalRun = spawnSync(process.execPath, [path.join(ROOT, 'evals', 'run.js'), path.join(ROOT, 'evals', '__missing_outputs__')], { encoding: 'utf8' });
 assert(evalRun.status === 1 && evalRun.stderr.includes('no eval outputs found'), 'grading no eval outputs fails');
 
@@ -165,7 +214,7 @@ for (const rule of RULES) {
   emitted.get(rule.id).add(rule.sev);
   if (rule.stack) emitted.get(rule.id).add('P1');
 }
-for (const [id, sevs] of [['P5-HASHTAG', ['P0', 'P1']], ['P2-BOLD', ['P1']], ['V2-CLUSTER', ['P1']], ['O11-DETECTORBAIT', ['P0']]]) {
+for (const [id, sevs] of [['P5-HASHTAG', ['P0', 'P1']], ['P2-BOLD', ['P1']], ['V2-CLUSTER', ['P1']], ['O11-DETECTORBAIT', ['P0']], ['V5-PLAINNESS', ['P2']]]) {
   emitted.set(id, new Set(sevs));
 }
 for (const [id, sevs] of emitted) {
@@ -173,6 +222,14 @@ for (const [id, sevs] of emitted) {
   const bad = entry ? [...sevs].filter((s) => !entry.has(s)) : [];
   assert(entry && bad.length === 0, `${id} is documented${bad.length ? ' but severity ' + bad.join('/') + ' is not' : ''}`);
 }
+
+for (const id of ['R10-OVERPOLISH', 'O13-LOOSEOVERSHOOT']) {
+  assert(entries.has(id), `${id} is documented`);
+}
+const skill = read('SKILL.md');
+assert(fs.existsSync(path.join(ROOT, 'references', 'plainness.md')) && skill.includes('references/plainness.md'), 'SKILL.md lists references/plainness.md');
+assert(/plainness.*standard.*plain.*very-plain/s.test(skill) && /polish.*clean.*loose.*texting/s.test(skill), 'SKILL.md documents both options and their levels');
+assert(/"version": "2\.2\.0"/.test(read('package.json')) && skill.includes('Humanize Content v2.2'), 'version is 2.2 in package.json and SKILL.md');
 
 // ---------------------------------------------------------------------------
 console.log('repo');

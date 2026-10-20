@@ -8,6 +8,8 @@ evidence about how the text was produced. A Tier 3 word is just wordiness, which
 produce too, so never let Tier 3 hits alone push a document toward an "AI-written" verdict
 in Detect mode.
 
+For plainer word choice beyond these tiers (the `plainness` option), see `plainness.md`.
+
 Replacements are suggestions, not mandates. The best replacement is usually the plainest word
 the sentence survives with, and sometimes that is deletion.
 

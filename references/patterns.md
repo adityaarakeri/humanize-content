@@ -6,7 +6,8 @@ Quote the ID in Detect mode findings.
 Severities: P0 definite tell, P1 strong signal, P2 judgment call.
 
 Seven families: P (punctuation and formatting), V (vocabulary), S (structure), C (content),
-R (register), F (fingerprints), and O (overcorrection, in `overcorrection.md`).
+R (register), F (fingerprints), and O (overcorrection, in `overcorrection.md`). Two entries
+support the `plainness` and `polish` options: V5-PLAINNESS and R10-OVERPOLISH.
 
 A naming wart to know about: the P family's IDs start with "P" and so do the severities, so
 you will see entries like "P1-EMDASH (P0)". The part before the hyphen is the ID, the part in
@@ -105,6 +106,17 @@ Essay-template openers: "Furthermore,", "Moreover,", "Additionally,", "In additi
 "Ultimately,", "Overall,". Two or more in one piece is the tell.
 
 - Fix: delete, or use "and", "also", "so", "but". Never replace with a sass pivot (O1-SASS).
+
+### V5-PLAINNESS (P2)
+Polished or abstract register that is not an AI marker but reads as written-for-a-memo:
+"substantive point", "useful frame", nominalizations ("the implementation of the cache",
+"make a determination"), and words a typical reader would not say aloud when a common one
+exists. Judgment only in Rewrite mode, unless the user set `plainness` to plain or very-plain.
+Technical terms the audience needs are never a hit.
+
+- Fix: `references/plainness.md` (swap table, nominalization fixes, process).
+- Scanner: P2 only with `--plainness <level>`, when the approximate Flesch-Kincaid grade
+  exceeds the level ceiling (standard 12, plain 9, very-plain 7). Skipped under 20 words.
 
 ### V4-CLICHE (P1): cliché scene-setters
 "In today's fast-paced digital landscape", "In the dynamic world of X", "As the world
@@ -311,6 +323,19 @@ Reasoning-chain leakage: "Let me think through this step by step", "Breaking thi
 appearing in final copy.
 
 - Fix: conclusion first, then evidence.
+
+### R10-OVERPOLISH (P2)
+Casual-platform output (Slack, Messages, X reply, GitHub comment) in which every sentence is
+complete, fully punctuated, and joined with formal connectives. Reads as copy-edited prose in
+a register that is not. Judgment call; the scanner cannot see it, though `--metrics` helps
+(a long mean sentence, near-zero contraction rate, and low sentence-length spread on a short
+reply are the signs).
+
+- Fix: only if `polish` is loose or texting. Allow the casual grammar in
+  `overcorrection.md` (Polish levels), within the O13 cap. At polish clean, report it in
+  Detect mode and leave the text alone.
+- Carve-out: a short clean reply ("Yes, still on for tonight.") is not over-polished. Plain and
+  correct is fine.
 
 ---
 

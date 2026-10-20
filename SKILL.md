@@ -9,12 +9,13 @@ description: >
   "this sounds like ChatGPT", "remove the AI smell", "de-AI this", "audit this for tells", or
   any variation. Works on blog posts, X posts, X replies, LinkedIn posts, LinkedIn replies,
   Slack replies, text message replies, emails, READMEs, docs, HN posts, and GitHub issues and
-  PR comments. Always use this skill for humanization work, never
+  PR comments. Also handles "simpler words", "plain English", "more casual", and "less polished"
+  requests through the plainness and polish options. Always use this skill for humanization work, never
   freestyle it: it contains a strict no-fabrication rule, an anti-overcorrection layer, and a
   banned-move list (including em dashes) that ad-hoc rewriting will violate.
 ---
 
-# Humanize Content v2.1
+# Humanize Content v2.2
 
 Rewrite text so it reads like a specific person wrote it. Not "casual". Not "sassy". A person.
 
@@ -149,6 +150,46 @@ short and clean, return it with minimal edits and say so.
 Never skip this step. "Generic human" is not a voice, and generic-human output is exactly
 what detectors are trained on.
 
+### Step 1b: Set the options
+
+Two optional dials control how plain and how polished the rewrite is. Clean output that is
+also sterile and copy-edited is the failure they address. Both default to the old behavior.
+
+| Option | Values | Default |
+|---|---|---|
+| `plainness` | `standard`, `plain`, `very-plain` | `standard` |
+| `polish` | `clean`, `loose`, `texting` | `clean` |
+
+- **plainness** sets word choice and sentence build. `plain` targets about grade 9 or lower:
+  common words, verbs over nominalizations. `very-plain` targets about grade 7 or lower: short
+  everyday words, one idea per sentence. Never dumb down a technical term the audience needs,
+  never drop a fact (Law 3). Rules and swap lists: `references/plainness.md`.
+- **polish** sets grammar looseness. `loose` permits comma splices, "And"/"So"/"But" openers,
+  and a dropped final period on a one-line reply. `texting` adds lowercase starts, no final
+  punctuation, and "gonna"/"kinda". Both are ceilings, not quotas, capped at about one loose
+  device per three sentences (O13). Rules: Polish levels in `references/overcorrection.md`.
+
+Infer from the request: "simpler words", "plain English", "less fancy", "too formal" means
+`plain`. "Explain it simply", "for a general audience", "dumb it down" means `very-plain`.
+"More casual", "less polished", "too perfect", "sounds copy-edited" means `loose`. "Like a
+text", "like I'd text it" means `texting`. "More casual" alone never means `texting`.
+
+Defaults by platform: Messages reply is `plain` and `loose`; Slack reply and X reply are
+`plain` and `clean`; everything else is `standard` and `clean`. Table in
+`references/platform-rules.md`.
+
+Precedence, highest first:
+
+1. The Three Laws and the hard-banned moves. Looseness never makes an em dash, an invented
+   fact, a deliberate typo (O2), or a changed protected span.
+2. An option the user names in this request. It sets the ceiling and the permitted devices.
+3. Voice samples. They beat platform defaults and anything inferred, and they supply the
+   habits a named option does not set. Fully punctuated texts keep a Messages reply clean.
+4. Options inferred from the wording of the request.
+5. Platform default, then the global default.
+
+Keep a one-line note of the chosen levels next to the voice fingerprint.
+
 ### Step 2: Audit the input
 
 Read `references/patterns.md` and scan the text against the full catalog. Note every hit with
@@ -156,13 +197,14 @@ its pattern ID. The catalog covers seven families:
 
 - **P: Punctuation and formatting** (em dashes, bold overuse, emoji headers, title case,
   hashtag stuffing, list-label periods)
-- **V: Vocabulary** (tiered word and phrase lists in `references/vocabulary.md`)
+- **V: Vocabulary** (tiered word and phrase lists in `references/vocabulary.md`, plus
+  polished-register plainness in `references/plainness.md`)
 - **S: Structure** (rule of three, uniform rhythm, "It's not just X", inline-header lists,
   numbered-list inflation, wall-of-text replies, excessive headers)
 - **C: Content** (significance inflation, promotional language, vague attribution,
   hedge-stacked predictions, speculative gap-filling, generic conclusions)
 - **R: Register** (chatbot artifacts, sycophancy, narrated candor, recap-flattery openers,
-  acknowledgment loops)
+  acknowledgment loops, over-polish in casual registers)
 - **F: Fingerprints** (unfilled placeholders, chatbot citation markup, AI-tool UTM parameters)
 - **O: Overcorrection** (the humanizer-introduced tells in `references/overcorrection.md`)
 
@@ -194,6 +236,12 @@ work that pure tell-removal skips:
   bracket a FILL prompt (Law 1).
 - **Openings and closings**: cut throat-clearing openers, cut summary endings. End on the last
   real point. It is fine for a piece to just stop.
+- **Plainness**: apply the chosen level from Step 1b with `references/plainness.md`. Swap
+  polished words for common ones, turn nominalizations back into verbs, keep needed technical
+  terms, keep every fact.
+- **Polish**: at `loose` or `texting`, let the grammar relax as far as Step 1b permits and
+  no further. Do it where speech would run on, not on a schedule. Casual registers that come
+  back fully copy-edited are an R10-OVERPOLISH miss.
 
 ### Step 4: Self-audit
 
@@ -205,8 +253,14 @@ autopilot. Fix, then re-check the fixes.
 Check that every unsupported measurable improvement has a FILL prompt and that every
 protected span matches the source. Do this before the style scan.
 
+Also check the options: no polished word the plainness level should have swapped
+(V5-PLAINNESS), no loose device past the cap (O13), no deliberate typo at any level (O2), and
+no fact lost to make a sentence simpler (Law 3).
+
 If Node is available, also pipe your rewrite through `node scripts/check.js -`. Any P0 it
 reports must be fixed before you return. It is cheap insurance against the leftover em dash.
+When plainness is set, add `--metrics --plainness <level>` to see the approximate grade and
+sentence stats. A V5-PLAINNESS finding means the draft is over the ceiling.
 
 ### Step 5: Return
 
@@ -257,6 +311,11 @@ Read before working, in this order:
 4. `references/platform-rules.md`: per-platform register rules. Read when platform is known.
 5. `references/voice-capture.md`: building a voice fingerprint from user samples. Read when
    samples are available.
+6. `references/plainness.md`: plain-word rules, swap lists, nominalization fixes. Read when
+   plainness is `plain` or `very-plain`.
+
+The polish rules live in the Polish levels section of `references/overcorrection.md`, which
+you read before Step 4 anyway.
 
 ---
 

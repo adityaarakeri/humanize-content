@@ -1,6 +1,6 @@
 {
   "name": "humanize-content",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "description": "Codex and Claude skill that removes AI writing tells without introducing humanizer tells. Includes a zero-dependency deterministic scanner and behavior evals.",
   "license": "MIT",

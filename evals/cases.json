@@ -434,6 +434,174 @@
         "pass": "New analytics dashboard is live today. It uses AI to help teams see their numbers. [FILL: what it actually does]",
         "fail": "Launching our new analytics dashboard today. It leverages AI to empower teams. #AI #Analytics #Startup #Growth"
       }
+    },
+    {
+      "id": "plain-very-plain-jargon",
+      "law": "plainness: very-plain / Law 3",
+      "mode": "rewrite",
+      "platform": "blog post",
+      "options": {
+        "plainness": "very-plain"
+      },
+      "input": "The utilization of a distributed caching layer facilitated a substantial reduction in tail latency, and the implementation necessitated a comprehensive reevaluation of our invalidation methodology. Subsequent to the rollout, p99 decreased from 840 ms to 210 ms, which demonstrates the efficacy of the approach.",
+      "checks": [
+        {
+          "type": "contains",
+          "value": "840",
+          "why": "facts survive simplification (Law 3)"
+        },
+        {
+          "type": "contains",
+          "value": "210",
+          "why": "facts survive simplification (Law 3)"
+        },
+        {
+          "type": "contains",
+          "value": "p99",
+          "why": "the technical term the audience needs stays"
+        },
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\b(?:utiliz\\w*|facilitat\\w*|substantial|necessitat\\w*|comprehensive|reevaluation|methodology|subsequent|demonstrat\\w*|efficacy|implementation)\\b",
+          "flags": "i",
+          "why": "fancy words swapped for plain ones"
+        },
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\d+(?:\\.\\d+)?\\s*(?:%|percent|x\\b)",
+          "flags": "i",
+          "why": "no invented figures (Law 1)"
+        },
+        {
+          "type": "max_grade",
+          "value": 7,
+          "why": "very-plain ceiling, approximate Flesch-Kincaid"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "We added a cache that spreads data across several servers. It cut tail latency. We also had to rethink how we clear old data from it. After the rollout, p99 dropped from 840 ms to 210 ms. That shows the fix works.",
+        "fail": "The utilization of a distributed caching layer facilitated a substantial reduction in tail latency. Subsequent to the rollout, p99 decreased from 840 ms to 210 ms, which demonstrates the efficacy of the approach.",
+        "failures": [
+          "We added a cache across several servers. It cut tail latency a lot, and we had to rethink how we clear old data. The rollout worked.",
+          "We added a cache across several servers. It cut tail latency and we rethought how we clear old data. After the rollout, p99 dropped from 840 ms to 210 ms, a 75% cut.",
+          "Adding distributed caching considerably decreased variability in response times, although reconsidering invalidation approaches was unavoidable afterwards, so p99 dropped from 840 ms to 210 ms overall."
+        ]
+      }
+    },
+    {
+      "id": "polish-loose-slack",
+      "law": "polish: loose / O3 / Law 1",
+      "mode": "rewrite",
+      "platform": "Slack reply",
+      "options": {
+        "plainness": "plain",
+        "polish": "loose"
+      },
+      "input": "Parent message: \"Did the staging migration go through? Can we start QA?\"\n\nDraft reply: I have completed the migration of the staging database at 14:05. The rollback procedure has been tested successfully. You may begin QA at your convenience.",
+      "checks": [
+        {
+          "type": "contains",
+          "value": "14:05"
+        },
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\b(?:ngl|tbh|lol|lmao|fr fr|imo|imho|omg|vibes?|slaps?|lowkey|highkey|bruh|ur|pls|thx)\\b",
+          "flags": "i",
+          "why": "loose grammar is allowed, slang is not (O3)"
+        },
+        {
+          "type": "rewrite_not_regex",
+          "value": "(?<![\\d:])(?!14:05)\\d",
+          "why": "no invented numbers, durations, or counts (Law 1)"
+        },
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\b(?:let me know|ping me|feel free|hope this helps|happy to)\\b",
+          "flags": "i",
+          "why": "no offer-to-help closer"
+        },
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\b(?:furthermore|moreover|at your convenience)\\b",
+          "flags": "i",
+          "why": "no formal register left over"
+        },
+        {
+          "type": "max_grade",
+          "value": 9,
+          "why": "plain ceiling, approximate Flesch-Kincaid"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "Migration's done, staging DB finished at 14:05, and the rollback's tested too so you're good to start QA",
+        "fail": "ngl the migration slapped, finished at 14:05, lowkey tested the rollback too lol",
+        "failures": [
+          "Migration finished at 14:05 and took 12 minutes, rollback's tested, QA can start.",
+          "Done at 14:05! Rollback's tested. Let me know if you need anything else.",
+          "The migration has been completed at 14:05. The rollback procedure has been tested successfully. You may begin QA at your convenience."
+        ]
+      }
+    },
+    {
+      "id": "polish-loose-no-typos",
+      "law": "polish: loose / O2-FAKETYPO",
+      "mode": "rewrite",
+      "platform": "Messages reply",
+      "options": {
+        "polish": "loose"
+      },
+      "input": "Incoming message: \"Did you get the tickets?\"\n\nDraft reply: Yes, I have purchased the tickets. They are in your email.",
+      "checks": [
+        {
+          "type": "rewrite_contains",
+          "value": "tickets"
+        },
+        {
+          "type": "rewrite_contains",
+          "value": "email"
+        },
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\b(?:teh|adn|tht|taht|waht|recieve|definately|becuase|becasue|thier|wiht|yuo|alot|ti(?:ckest|cekts|kcets|ckts)|emial|eamil)\\b",
+          "flags": "i",
+          "why": "no deliberate misspellings at any polish level (O2)"
+        },
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\b(\\w+) \\1\\b",
+          "flags": "i",
+          "why": "no doubled-word errors"
+        },
+        {
+          "type": "rewrite_not_regex",
+          "value": "(?<![A-Za-z0-9'\\u2019.])i(?:['\\u2019]|\\s)",
+          "why": "no lowercase i; that is texting level, which was not requested"
+        },
+        {
+          "type": "rewrite_not_regex",
+          "value": "\\b(?:ngl|tbh|lol|lmao|omg|u|ur|pls|thx|fr)\\b",
+          "flags": "i",
+          "why": "no slang or abbreviations (O3)"
+        },
+        {
+          "type": "scanner_no_p0"
+        }
+      ],
+      "fixtures": {
+        "pass": "Yep, got the tickets, they're in your email",
+        "fail": "yep got the ticekts, i sent them to ur email lol",
+        "failures": [
+          "Yes I got the the tickets, they're in your email.",
+          "Yep, i got the tickets. They're in your email.",
+          "Yep, got the tickets, they're in your emial."
+        ]
+      }
     }
   ]
 }

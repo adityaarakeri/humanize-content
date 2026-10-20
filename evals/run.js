@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { scan } = require('../scripts/check.js');
+const { scan, computeMetrics } = require('../scripts/check.js');
 const { cases } = JSON.parse(fs.readFileSync(path.join(__dirname, 'cases.json'), 'utf8'));
 
 // Ignore explanatory notes when checking the text the user would publish.
@@ -59,6 +59,11 @@ function runCheck(check, output, input) {
     case 'not_regex': return !new RegExp(check.value, check.flags || '').test(output);
     case 'rewrite_not_regex': return !new RegExp(check.value, check.flags || '').test(rewriteBody(output));
     case 'scanner_no_p0': return !scan(rewriteBody(output)).some((f) => f.sev === 'P0');
+    case 'max_grade': {
+      // Approximate Flesch-Kincaid grade of the rewritten text, same measure as check.js --metrics.
+      const grade = computeMetrics(rewriteBody(output)).fkGrade;
+      return grade !== null && grade <= check.value;
+    }
     case 'preserve_code':
       return JSON.stringify(codeSpans(input)) === JSON.stringify(codeSpans(rewriteBody(output)));
     case 'finding': return findingMatches(check, output);
@@ -71,6 +76,7 @@ function describe(check) {
     : check.type === 'preserve_code' ? 'preserve code spans exactly, in order, in the rewrite'
     : check.type === 'nonempty' ? 'nonempty response'
     : check.type === 'scanner_no_p0' ? 'scanner reports no P0 in rewritten text'
+    : check.type === 'max_grade' ? `approx. grade of rewritten text at most ${check.value}`
     : `${check.type} ${JSON.stringify(check.value)}`;
   return check.why ? `${what} (${check.why})` : what;
 }
@@ -82,6 +88,9 @@ function grade(c, output) {
 
 function promptFor(c) {
   const lines = [`Use the humanize-content skill in ${c.mode} mode. Target platform: ${c.platform}.`];
+  if (c.options) {
+    lines.push(`Options: ${Object.entries(c.options).map(([k, v]) => `${k} ${v}`).join(', ')}.`);
+  }
   if (c.voice_samples) {
     lines.push('', 'Samples of how I write:');
     c.voice_samples.forEach((s, i) => lines.push('', `Sample ${i + 1}:`, s));

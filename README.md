@@ -54,6 +54,24 @@ It also does voice fingerprinting. Give it two or three samples of your writing 
 your sentence rhythm, connectives, and punctuation habits. Without samples you get "generic
 human", which is a detectable style of its own.
 
+## Plainness and polish
+
+Removing tells leaves text clean but often sterile and over-edited. Two optional dials fix
+that. Both default to the old behavior.
+
+- `plainness`: `standard` (default), `plain` (about grade 9 or lower, common words, verbs over
+  nominalizations), `very-plain` (about grade 7 or lower, short everyday words). Technical
+  terms the audience needs and every fact stay. Rules: `references/plainness.md`.
+- `polish`: `clean` (default), `loose` (comma splices, "And"/"So" openers, a dropped final
+  period), `texting` (adds lowercase starts and "gonna"/"kinda"). Loose is a ceiling, not a
+  quota, and never slang or typos. Rules: Polish levels in `references/overcorrection.md`.
+
+Ask in plain words ("simpler words", "more casual", "like a text"). Messages replies default to
+plain and loose; Slack and X replies default to plain and clean; everything else is unchanged.
+Your voice samples beat the defaults, and the Three Laws and banned moves beat everything.
+Deliberate typos stay banned at every level. Design notes:
+`docs/design/authenticity-options.md`.
+
 ## Platform targets
 
 Name where the text is going and the skill applies that platform's register from
@@ -84,9 +102,12 @@ humanize-content/
 ├── references/
 │   ├── patterns.md           # full catalog with IDs, severities, and fixes
 │   ├── vocabulary.md         # tiered word lists (source of truth for the V family)
-│   ├── overcorrection.md     # tells that humanizers introduce
+│   ├── overcorrection.md     # tells that humanizers introduce, plus polish levels
+│   ├── plainness.md          # plain-word rules, swap lists, nominalization fixes
 │   ├── platform-rules.md     # blog, X/LinkedIn posts and replies, Slack, messages, HN, email, README, GitHub
 │   └── voice-capture.md      # building a voice fingerprint from samples
+├── docs/design/
+│   └── authenticity-options.md   # design notes for plainness, polish, typo policy
 ├── scripts/
 │   └── check.js              # zero-dependency scanner (Node 18+)
 ├── test/
@@ -147,8 +168,18 @@ The scanner is handy outside the skill, for example as a docs gate in CI:
 node scripts/check.js path/to/draft.md            # human-readable report
 node scripts/check.js --json a.md b.md            # JSON (an array when you pass several files)
 cat draft.md | node scripts/check.js -            # stdin
+node scripts/check.js --metrics draft.md          # add readability and rhythm numbers
+node scripts/check.js --plainness plain draft.md  # P2 finding if the grade is over the ceiling
 node scripts/check.js --help
 ```
+
+`--metrics` reports word and sentence counts, sentence length mean and spread, mean word
+length, an approximate Flesch-Kincaid grade, contraction rate, and the share of words with
+three or more syllables. Syllables are estimated, so treat the grade as a rough ceiling check,
+not a score. In `--json` the numbers sit under a `metrics` key that only appears when
+requested. `--plainness standard|plain|very-plain` adds a P2 `V5-PLAINNESS` finding when the
+grade is over 12, 9, or 7 (and the text has 20 or more words). Neither flag changes the exit
+code or the default output. Code, URLs, and comments are not measured.
 
 It exits 1 on any P0 finding, 2 on a usage or read error, and 0 otherwise, so it drops straight
 into a pipeline. P1 and P2 findings are printed but never fail the build.
@@ -230,9 +261,11 @@ all pass, 1 for a writing quality failure, and 2 for invalid arguments or a CLI 
 A CLI failure stops the run and leaves a report of completed and uncompleted cases.
 To grade a saved trial again, pass its `trial-1` directory to `node evals/run.js`.
 
-The nine cases include supplied measurements that must not gain FILL prompts and protected
+The cases include supplied measurements that must not gain FILL prompts and protected
 code whose punctuation must survive. Graders check exact code spans in the rewrite, required
 FILL prompts in the passage, and Detect IDs paired with their severities and source excerpts.
+A `max_grade` check caps the approximate grade of the rewrite for plainness cases. The loose
+polish cases check that casual grammar never brings slang, typos, or invented facts.
 They reject empty responses and include regression fixtures from live failures. The checks
 cover specific requirements; a reader still needs to judge voice and semantic fidelity.
 Repeated trials expose variation but do not prove reliability on all writing.

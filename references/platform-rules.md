@@ -6,6 +6,26 @@ platform gets forced sass.
 
 ---
 
+## Option defaults per platform
+
+`plainness` (standard, plain, very-plain) and `polish` (clean, loose, texting) are defined in
+SKILL.md Step 1b. Defaults when the user and their samples say nothing:
+
+| Platform | plainness | polish |
+|---|---|---|
+| Messages reply | plain | loose |
+| Slack reply | plain | clean |
+| X reply | plain | clean |
+| Everything else | standard | clean |
+
+Messages reply is the only platform whose grammar default changes, because copy-edited prose
+is the most visible tell in a text. Loose is a ceiling, not a quota: a short, natural reply
+stays as written. `texting` is never a platform default. Samples beat these defaults, and the
+Three Laws and hard bans beat everything. Rules: `references/plainness.md` and the Polish
+levels section of `references/overcorrection.md`.
+
+---
+
 ## Blog post / long-form article
 
 **Voice**: first person if the user writes that way. A person explaining something they
@@ -117,7 +137,8 @@ is most obvious to recipients who know the sender.
 - `@` mentions only for people who must act or who were asked something.
 - Formal sign-offs, greetings, and "Hope you're well" do not belong.
 - Lowercase, dropped punctuation, or emoji only if the user's own Slack samples do it (O3).
-  Do not manufacture casualness.
+  Do not manufacture casualness. Polish defaults to clean here; samples or a named `polish`
+  option can move it to loose.
 - Keep code, commands, links, and channel or user references byte for byte (Law 3).
 - Bad news or a "no" is stated in the first sentence, without cushioning.
 
@@ -129,6 +150,10 @@ and the easiest to get wrong.
 - Needs the incoming message. Ask for it, and for who it is from if the register depends on it.
 - Match the user's texting samples for length, contractions, punctuation, and emoji. Without
   samples, write plain short sentences and stop. Do not add slang or abbreviations (O3).
+- Defaults are plainness plain and polish loose: casual grammar is allowed (a comma splice,
+  an "And" opener, a dropped final period), never required, and capped by O13. No deliberate
+  typos (O2). Lowercase starts and no final punctuation need `polish: texting`, which needs
+  an explicit request or samples that show it.
 - Usually one to two sentences. One message, not a block of paragraphs (S9-WALLREPLY).
 - No greeting or sign-off unless the user's texts have them.
 - Do not mirror the other person's tells. Mirror their formality only.

@@ -1,7 +1,33 @@
 # Changelog
 
-## Unreleased
+## 2.2.0 (unreleased)
 
+Adds two options that push output toward how a person actually writes, not just away from
+AI tells. Defaults keep the old behavior, except Messages replies.
+
+### Added
+- `plainness` option (`standard`, `plain`, `very-plain`) with `references/plainness.md`: plain
+  word swaps beyond the AI tiers, nominalization fixes, and rules against dumbing down needed
+  technical terms or dropping facts.
+- `polish` option (`clean`, `loose`, `texting`) with a Polish levels section in
+  `references/overcorrection.md`. Permits casual grammar as a ceiling, never a quota.
+- New patterns: V5-PLAINNESS (P2, polished register), R10-OVERPOLISH (P2, casual register
+  that comes back fully copy-edited), O13-LOOSEOVERSHOOT (P1, looseness past the cap).
+- SKILL.md Step 1b (set the options, inference phrases, precedence) and wiring into Steps 3
+  and 4. Platform defaults in `platform-rules.md`: Messages reply is plain and loose, Slack
+  and X replies are plain and clean.
+- Scanner: `--metrics` (words, sentences, sentence length mean and sd, word length, approximate
+  Flesch-Kincaid grade, contraction rate, long-word share) and `--plainness <level>`
+  (P2 V5-PLAINNESS over the grade ceiling). Opt-in; default output and `--json` shape are
+  unchanged.
+- Evals: `max_grade` check type, an `options` field on cases, and three cases (very-plain
+  jargon, loose Slack reply, loose with no deliberate typos).
+- `docs/design/authenticity-options.md`: design, typo policy (random typo injection stays
+  banned), and out-of-scope list.
+
+### Changed
+- O2-FAKETYPO clarifies that lowercase starts and dropped final punctuation under
+  `polish: texting` are a requested register, not simulated damage.
 - Added platform targets for X replies, LinkedIn replies, Slack replies, and Messages replies
   (SMS, iMessage, WhatsApp). Renamed the X and LinkedIn sections to "X post" and "LinkedIn
   post". Split Slack and Messages out of the GitHub chat-reply section. Replies now ask for the

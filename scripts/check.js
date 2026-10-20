@@ -10,11 +10,15 @@
  * Usage:
  *   node scripts/check.js <file> [file...]
  *   node scripts/check.js --json <file> [file...]
+ *   node scripts/check.js --metrics --plainness plain <file>
  *   cat draft.md | node scripts/check.js -
  *   node scripts/check.js --help
  *
  * Exit codes: 0 clean or P1/P2 only, 1 any P0 finding, 2 usage or IO error.
  * With --json, one file prints one object; several files print an array of objects.
+ * --metrics adds readability and rhythm numbers (under a "metrics" key in JSON).
+ * --plainness <level> adds a P2 V5-PLAINNESS finding when the approximate grade is over the
+ * level's ceiling. Neither flag changes the exit code or the default output.
  *
  * Scope: this catches what regex can catch. Most structure, content, register,
  * and overcorrection tells need a reader. A clean scan means the mechanical
@@ -31,11 +35,21 @@ const fs = require('fs');
 const EM = '\u2014';
 const EN = '\u2013';
 
-const USAGE = `usage: node scripts/check.js [--json] <file|-> [file...]
+const PLAINNESS_TARGETS = { standard: 12, plain: 9, 'very-plain': 7 };
+// Grade is unstable on very short text, so the plainness check needs this many words.
+const PLAINNESS_MIN_WORDS = 20;
 
-  -           read from stdin
-  --json      machine-readable output (array when more than one file)
-  -h, --help  show this help
+const USAGE = `usage: node scripts/check.js [--json] [--metrics] [--plainness <level>] <file|-> [file...]
+
+  -                     read from stdin
+  --json                machine-readable output (array when more than one file)
+  --metrics             also report readability and rhythm numbers: words, sentences,
+                        sentence length mean and sd, word length, approximate
+                        Flesch-Kincaid grade, contraction rate, share of 3+ syllable words
+                        (syllables are estimated, so the grade is approximate)
+  --plainness <level>   standard | plain | very-plain. Adds a P2 V5-PLAINNESS finding when
+                        the approximate grade is over the ceiling (12, 9, 7). Needs 20+ words.
+  -h, --help            show this help
 
 exit codes: 0 no P0 findings, 1 at least one P0, 2 usage or IO error`;
 
@@ -266,6 +280,81 @@ function detectorBait(text) {
 }
 
 // ---------------------------------------------------------------------------
+// Metrics: opt-in readability and rhythm numbers. Measured on masked prose, so code,
+// URLs, comments, and example-marked lines never count.
+// ---------------------------------------------------------------------------
+
+const WORD_RE = /[A-Za-z][A-Za-z0-9]*(?:['\u2019-][A-Za-z0-9]+)*/g;
+const CONTRACTION_RE = /\b(?:[A-Za-z]+n['\u2019]t|[A-Za-z]+['\u2019](?:re|ve|ll|d|m)|(?:it|that|there|here|he|she|what|who|where|how|let)['\u2019]s)\b/gi;
+const CONTRACTABLE_RE = /\b(?:(?:do|does|did|is|are|was|were|have|has|had|would|could|should|will|can) not|cannot|(?:i am|you are|we are|they are|i have|you have|we have|they have|i will|you will|we will|they will|i would|you would|we would|they would)|(?:it|that|there|here|he|she|what|who|where|how) is|let us)\b/gi;
+
+// Vowel-group heuristic with silent-e handling. Approximate: "uses" and "agreed" can be off by one.
+function countSyllables(word) {
+  let w = word.toLowerCase().replace(/[^a-z]/g, '');
+  if (!w) return 0;
+  if (w.length <= 3) return 1;
+  w = w.replace(/(?:[^laeiouy]es|[^aeiouytd]ed|[^laeiouy]e)$/, '').replace(/^y/, '');
+  const groups = w.match(/[aeiouy]{1,2}/g);
+  return groups ? groups.length : 1;
+}
+
+function proseForMetrics(text) {
+  return maskNonProse(text)
+    .replace(/<[^>\n]+>/g, ' ')
+    .replace(/\[([^\]\n]*)\]\([^)\n]*\)/g, '$1')
+    .split('\n')
+    .map((l) => l.replace(/^\s*(?:#{1,6}\s+|>\s*|[-*+]\s+|\d+[.)]\s+)/, '').replace(/[*_|]/g, ' '))
+    .join('\n');
+}
+
+const round = (n, d) => Math.round(n * 10 ** d) / 10 ** d;
+
+function computeMetrics(text) {
+  const prose = proseForMetrics(text);
+  const sentenceLengths = [];
+  for (const block of prose.split('\n')) {
+    for (const part of block.split(/(?<=[.!?])["')\]]*\s+/)) {
+      const n = (part.match(WORD_RE) || []).length;
+      if (n > 0) sentenceLengths.push(n);
+    }
+  }
+  const words = prose.match(WORD_RE) || [];
+  const nWords = words.length;
+  const nSent = sentenceLengths.length;
+  const syllables = words.map(countSyllables);
+  const totalSyll = syllables.reduce((a, b) => a + b, 0);
+  const mean = nSent ? nWords / nSent : 0;
+  const variance = nSent ? sentenceLengths.reduce((a, n) => a + (n - mean) ** 2, 0) / nSent : 0;
+  const contractions = (prose.match(CONTRACTION_RE) || []).length;
+  const opportunities = (prose.match(CONTRACTABLE_RE) || []).length;
+  const fk = nWords && nSent ? 0.39 * mean + 11.8 * (totalSyll / nWords) - 15.59 : null;
+  return {
+    words: nWords,
+    sentences: nSent,
+    meanSentenceLength: round(mean, 1),
+    sdSentenceLength: round(Math.sqrt(variance), 1),
+    meanWordLength: nWords ? round(words.reduce((a, w) => a + w.replace(/[^A-Za-z]/g, '').length, 0) / nWords, 2) : 0,
+    fkGrade: fk === null ? null : round(fk, 1),
+    contractions,
+    contractionRate: contractions + opportunities ? round(contractions / (contractions + opportunities), 2) : null,
+    longWordShare: nWords ? round(syllables.filter((n) => n >= 3).length / nWords, 3) : 0,
+  };
+}
+
+function plainnessFindings(metrics, level) {
+  const ceiling = PLAINNESS_TARGETS[level];
+  if (metrics.words < PLAINNESS_MIN_WORDS || metrics.fkGrade === null || metrics.fkGrade <= ceiling) return [];
+  return [{ id: 'V5-PLAINNESS', sev: 'P2', line: 0, label: `approx. grade ${metrics.fkGrade} is over the ${level} ceiling of ${ceiling}`, excerpt: '' }];
+}
+
+function reportMetrics(m) {
+  const rate = m.contractionRate === null ? 'n/a' : m.contractionRate;
+  console.log(`  metrics: ${m.words} words, ${m.sentences} sentences, sentence length ${m.meanSentenceLength} (sd ${m.sdSentenceLength}), ` +
+    `word length ${m.meanWordLength}, approx. grade ${m.fkGrade === null ? 'n/a' : m.fkGrade}, ` +
+    `contraction rate ${rate} (${m.contractions}), long words ${m.longWordShare}`);
+}
+
+// ---------------------------------------------------------------------------
 
 function scan(text) {
   const masked = maskNonProse(text);
@@ -308,20 +397,38 @@ function report(name, findings) {
   }
 }
 
+function parseArgs(args) {
+  const opts = { json: false, metrics: false, plainness: null, files: [], unknown: [], error: null };
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--json') opts.json = true;
+    else if (a === '--metrics') opts.metrics = true;
+    else if (a === '--plainness' || a.startsWith('--plainness=')) {
+      const value = a === '--plainness' ? args[++i] : a.slice('--plainness='.length);
+      if (!Object.prototype.hasOwnProperty.call(PLAINNESS_TARGETS, value)) {
+        opts.error = `--plainness needs one of: ${Object.keys(PLAINNESS_TARGETS).join(', ')}`;
+      } else opts.plainness = value;
+    } else if (a === '-' || !a.startsWith('-')) opts.files.push(a);
+    else opts.unknown.push(a);
+  }
+  return opts;
+}
+
 function main(argv) {
   const args = argv.slice(2);
   if (args.includes('-h') || args.includes('--help')) {
     console.log(USAGE);
     return 0;
   }
-  const asJson = args.includes('--json');
-  const unknown = args.filter((a) => a.startsWith('-') && a !== '-' && a !== '--json');
-  const files = args.filter((a) => a === '-' || !a.startsWith('-'));
-  if (unknown.length > 0 || files.length === 0) {
-    if (unknown.length > 0) console.error(`unknown option: ${unknown.join(' ')}`);
+  const opts = parseArgs(args);
+  const { files } = opts;
+  if (opts.unknown.length > 0 || opts.error || files.length === 0) {
+    if (opts.unknown.length > 0) console.error(`unknown option: ${opts.unknown.join(' ')}`);
+    if (opts.error) console.error(opts.error);
     console.error(USAGE);
     return 2;
   }
+  const asJson = opts.json;
 
   let exitCode = 0;
   const results = [];
@@ -335,8 +442,13 @@ function main(argv) {
       continue;
     }
     const findings = scan(text);
-    if (asJson) results.push({ file: f, findings });
-    else report(f, findings);
+    const metrics = opts.metrics || opts.plainness ? computeMetrics(text) : null;
+    if (opts.plainness) findings.push(...plainnessFindings(metrics, opts.plainness));
+    if (asJson) results.push(opts.metrics ? { file: f, findings, metrics } : { file: f, findings });
+    else {
+      report(f, findings);
+      if (opts.metrics) reportMetrics(metrics);
+    }
     if (exitCode === 0 && findings.some((x) => x.sev === 'P0')) exitCode = 1;
   }
   if (asJson) {
@@ -347,4 +459,4 @@ function main(argv) {
 }
 
 if (require.main === module) process.exitCode = main(process.argv);
-module.exports = { scan, RULES, TIER1, TIER2, maskNonProse };
+module.exports = { scan, RULES, TIER1, TIER2, maskNonProse, computeMetrics, countSyllables, plainnessFindings, PLAINNESS_TARGETS };
